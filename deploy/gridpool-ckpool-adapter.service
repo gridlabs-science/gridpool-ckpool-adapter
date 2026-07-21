@@ -1,0 +1,24 @@
+[Unit]
+Description=GridPool CKPool local adapter
+After=network-online.target bootserverapp.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gridpool
+Group=gridpool
+RuntimeDirectory=gridpool
+RuntimeDirectoryMode=0750
+StateDirectory=gridpool-ckpool-adapter
+StateDirectoryMode=0750
+ExecStart=/usr/local/bin/gridpool-ckpool-adapter --config /etc/gridpool/ckpool-adapter.toml
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/gridpool /var/lib/gridpool-ckpool-adapter
+
+[Install]
+WantedBy=multi-user.target

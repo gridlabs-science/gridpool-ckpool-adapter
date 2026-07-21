@@ -1,0 +1,14 @@
+gridpool_url = "http://127.0.0.1:5000"
+adapter_token_file = "/var/lib/gridpool/local-adapter.token"
+socket_path = "/run/gridpool/ckpool-adapter.sock"
+queue_database = "/var/lib/gridpool-ckpool-adapter/proofs.db"
+health_listen = "127.0.0.1:9098"
+expected_network_id = "mainnet-beta"
+expected_bitcoin_network = "mainnet"
+minimum_protocol_version = 21
+maximum_message_bytes = 262144
+poll_interval_ms = 1000
+maximum_plan_age_seconds = 30
+fee_basis_points = 0
+fee_secret_file = "/var/lib/gridpool-ckpool-adapter/fee-secret.hex"
+source_instance = "atlaspool-local"
