@@ -1,0 +1,13 @@
+[Unit]
+Description=GridPool CKPool local adapter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/libexec/gridpool-ckpool-adapter --config %h/.config/gridpool-ckpool-adapter/config.toml
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
