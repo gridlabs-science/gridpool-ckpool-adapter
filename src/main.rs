@@ -25,6 +25,8 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+
 #[derive(Parser)]
 struct Args {
     #[arg(long, default_value = "config/local.toml")]
@@ -86,9 +88,9 @@ async fn main() -> Result<()> {
     let database = open_database(Path::new(&config.queue_database))?;
     let state = Arc::new(AppState {
         config,
-        client: reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()?,
+        // Long-lived SSE work-plan streams must not inherit a whole-request timeout.
+        // Finite polling and POST requests set their own timeout below.
+        client: reqwest::Client::builder().build()?,
         token,
         fee_secret,
         plan: RwLock::new(None),
@@ -222,6 +224,7 @@ async fn fetch_plan(state: &Arc<AppState>) -> Result<()> {
         .client
         .get(url)
         .headers(adapter_headers(state)?)
+        .timeout(REQUEST_TIMEOUT)
         .send()
         .await?
         .error_for_status()?
@@ -526,6 +529,7 @@ async fn post_json(state: &AppState, path: &str, payload: &Value) -> Result<Valu
         .post(url)
         .headers(adapter_headers(state)?)
         .json(payload)
+        .timeout(REQUEST_TIMEOUT)
         .send()
         .await?
         .error_for_status()?
