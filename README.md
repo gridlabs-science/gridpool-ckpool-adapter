@@ -2,6 +2,11 @@
 
 Status: early integration prototype. Do not use for unattended production mining.
 
+Project-wide architecture and protocol context live in the
+[GridPool handbook](https://github.com/gridlabs-science/gridpool-handbook). The
+[GridPool reference node](https://github.com/gridlabs-science/boot-protocol)
+remains the consensus validator.
+
 This daemon keeps GridPool-specific HTTP, event-stream, retry, and fee-schedule
 logic outside CKPool. A locally patched CKPool process exchanges versioned
 length-prefixed JSON messages with it over a Unix socket.
@@ -60,3 +65,7 @@ Build with `cargo build --release`, install the binary as
 `deploy/gridpool-ckpool-adapter.service`. The service deliberately starts
 before CKPool and owns the local Unix socket. CKPool must fail closed when this
 service has no current parent-matching plan.
+
+## License
+
+Licensed under the [MIT License](LICENSE).
