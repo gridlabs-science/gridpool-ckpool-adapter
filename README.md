@@ -64,7 +64,10 @@ Build with `cargo build --release`, install the binary as
 `/usr/local/bin/gridpool-ckpool-adapter`, and customize the paths in
 `deploy/gridpool-ckpool-adapter.service`. The service deliberately starts
 before CKPool and owns the local Unix socket. CKPool must fail closed when this
-service has no current parent-matching plan.
+service has no current parent-matching plan. Set `ckpool_notify_socket` to
+CKPool's `stratifier` socket to trigger an immediate workbase refresh whenever
+the adapter installs a new payout plan; CKPool's normal update interval remains
+the fallback.
 
 ## License
 

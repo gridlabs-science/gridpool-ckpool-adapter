@@ -254,8 +254,24 @@ async fn install_plan(state: &Arc<AppState>, plan: WorkPlan) -> Result<()> {
     };
     if changed {
         state.metrics.lock().unwrap().plan_updates += 1;
+        if let Some(path) = state.config.ckpool_notify_socket.as_deref()
+            && let Err(error) = notify_ckpool_update(path).await
+        {
+            warn!(%error, %path, "failed to notify CKPool of new GridPool work plan");
+        }
     }
     *state.plan_updated_unix_ms.write().await = Some(now_unix_ms());
+    Ok(())
+}
+
+async fn notify_ckpool_update(path: &str) -> Result<()> {
+    let mut stream = UnixStream::connect(path)
+        .await
+        .with_context(|| format!("connect CKPool notify socket {path}"))?;
+    let message = b"update";
+    stream.write_u32_le(message.len() as u32).await?;
+    stream.write_all(message).await?;
+    stream.shutdown().await?;
     Ok(())
 }
 
@@ -460,10 +476,14 @@ async fn telemetry_loop(state: Arc<AppState>) {
             Ok(response) => {
                 let mut metrics = state.metrics.lock().unwrap();
                 metrics.telemetry_batches += 1;
-                metrics.telemetry_node_accepted_entries +=
-                    response.get("acceptedEntries").and_then(Value::as_u64).unwrap_or(0);
-                metrics.telemetry_node_accepted_shares +=
-                    response.get("acceptedShares").and_then(Value::as_u64).unwrap_or(0);
+                metrics.telemetry_node_accepted_entries += response
+                    .get("acceptedEntries")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                metrics.telemetry_node_accepted_shares += response
+                    .get("acceptedShares")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
                 metrics.telemetry_node_accepted_difficulty += response
                     .get("acceptedWorkDifficulty")
                     .and_then(Value::as_f64)

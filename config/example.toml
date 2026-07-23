@@ -1,6 +1,8 @@
 gridpool_url = "http://127.0.0.1:5000"
 adapter_token_file = "/var/lib/gridpool/local-adapter.token"
 socket_path = "/run/gridpool/ckpool-adapter.sock"
+# Optional CKPool stratifier socket. New work plans trigger an immediate GBT refresh.
+ckpool_notify_socket = "/tmp/ckpool/stratifier"
 queue_database = "/var/lib/gridpool-ckpool-adapter/proofs.db"
 health_listen = "127.0.0.1:9098"
 expected_network_id = "mainnet-beta"

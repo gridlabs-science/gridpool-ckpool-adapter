@@ -13,6 +13,8 @@ pub struct Config {
     pub gridpool_url: String,
     pub adapter_token_file: String,
     pub socket_path: String,
+    #[serde(default)]
+    pub ckpool_notify_socket: Option<String>,
     pub queue_database: String,
     pub health_listen: String,
     pub expected_network_id: String,
