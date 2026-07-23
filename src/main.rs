@@ -42,6 +42,13 @@ struct Metrics {
     submitted_proofs: u64,
     failed_proofs: u64,
     telemetry_batches: u64,
+    telemetry_accepted_shares: u64,
+    telemetry_rejected_shares: u64,
+    telemetry_accepted_difficulty: f64,
+    telemetry_node_accepted_entries: u64,
+    telemetry_node_accepted_shares: u64,
+    telemetry_node_accepted_difficulty: f64,
+    telemetry_last_observed_unix_ms: i64,
 }
 
 struct AppState {
@@ -376,6 +383,15 @@ async fn process_ipc(request: IpcRequest, state: &Arc<AppState>) -> IpcResponse 
                 } else {
                     entry.rejected_shares += 1;
                 }
+                let mut metrics = state.metrics.lock().unwrap();
+                metrics.telemetry_last_observed_unix_ms =
+                    metrics.telemetry_last_observed_unix_ms.max(observed_unix_ms);
+                if accepted {
+                    metrics.telemetry_accepted_shares += 1;
+                    metrics.telemetry_accepted_difficulty += difficulty;
+                } else {
+                    metrics.telemetry_rejected_shares += 1;
+                }
                 Ok(json!({ "recorded": true }))
             }
             IpcRequest::Health { schema_version } => {
@@ -420,27 +436,39 @@ async fn telemetry_loop(state: Arc<AppState>) {
             "bestDifficulty": entry.best_difficulty
         })).collect::<Vec<_>>();
         let batch = json!({ "sourceInstance": state.config.source_instance, "entries": entries });
-        if let Err(error) = post_json(&state, "/api/mining/local/share-telemetry", &batch).await {
-            warn!(%error, "telemetry flush failed; restoring batch");
-            let mut telemetry = state.telemetry.lock().unwrap();
-            for (key, old) in pending {
-                telemetry
-                    .entry(key)
-                    .and_modify(|entry| {
-                        entry.window_start_unix_ms =
-                            entry.window_start_unix_ms.min(old.window_start_unix_ms);
-                        entry.window_end_unix_ms =
-                            entry.window_end_unix_ms.max(old.window_end_unix_ms);
-                        entry.accepted_shares += old.accepted_shares;
-                        entry.rejected_shares += old.rejected_shares;
-                        entry.accepted_difficulty += old.accepted_difficulty;
-                        entry.fee_difficulty += old.fee_difficulty;
-                        entry.best_difficulty = entry.best_difficulty.max(old.best_difficulty);
-                    })
-                    .or_insert(old);
+        match post_json(&state, "/api/mining/local/share-telemetry", &batch).await {
+            Err(error) => {
+                warn!(%error, "telemetry flush failed; restoring batch");
+                let mut telemetry = state.telemetry.lock().unwrap();
+                for (key, old) in pending {
+                    telemetry
+                        .entry(key)
+                        .and_modify(|entry| {
+                            entry.window_start_unix_ms =
+                                entry.window_start_unix_ms.min(old.window_start_unix_ms);
+                            entry.window_end_unix_ms =
+                                entry.window_end_unix_ms.max(old.window_end_unix_ms);
+                            entry.accepted_shares += old.accepted_shares;
+                            entry.rejected_shares += old.rejected_shares;
+                            entry.accepted_difficulty += old.accepted_difficulty;
+                            entry.fee_difficulty += old.fee_difficulty;
+                            entry.best_difficulty = entry.best_difficulty.max(old.best_difficulty);
+                        })
+                        .or_insert(old);
+                }
             }
-        } else {
-            state.metrics.lock().unwrap().telemetry_batches += 1;
+            Ok(response) => {
+                let mut metrics = state.metrics.lock().unwrap();
+                metrics.telemetry_batches += 1;
+                metrics.telemetry_node_accepted_entries +=
+                    response.get("acceptedEntries").and_then(Value::as_u64).unwrap_or(0);
+                metrics.telemetry_node_accepted_shares +=
+                    response.get("acceptedShares").and_then(Value::as_u64).unwrap_or(0);
+                metrics.telemetry_node_accepted_difficulty += response
+                    .get("acceptedWorkDifficulty")
+                    .and_then(Value::as_f64)
+                    .unwrap_or(0.0);
+            }
         }
     }
 }
@@ -575,7 +603,14 @@ async fn health_value(state: &AppState) -> Value {
             "queuedProofs": metrics.queued_proofs,
             "submittedProofs": metrics.submitted_proofs,
             "failedProofs": metrics.failed_proofs,
-            "telemetryBatches": metrics.telemetry_batches
+            "telemetryBatches": metrics.telemetry_batches,
+            "telemetryAcceptedShares": metrics.telemetry_accepted_shares,
+            "telemetryRejectedShares": metrics.telemetry_rejected_shares,
+            "telemetryAcceptedDifficulty": metrics.telemetry_accepted_difficulty,
+            "telemetryNodeAcceptedEntries": metrics.telemetry_node_accepted_entries,
+            "telemetryNodeAcceptedShares": metrics.telemetry_node_accepted_shares,
+            "telemetryNodeAcceptedDifficulty": metrics.telemetry_node_accepted_difficulty,
+            "telemetryLastObservedUnixMs": metrics.telemetry_last_observed_unix_ms
         }
     })
 }
